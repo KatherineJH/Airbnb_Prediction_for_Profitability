@@ -1,5 +1,5 @@
 # thesis_project
-## Ensemble machine learning techniques with hyperparameter optimisations for Italian Airbnb data to predict profitability from an investment perspective. 
+Ensemble machine learning techniques with hyperparameter optimisations for Italian Airbnb data to predict profitability from an investment perspective. 
 
 ### This project used Italian Airbnb data from Kaggle.com and merged 10 different cities' data into one file.
 First, download the CSV file through the link below.
