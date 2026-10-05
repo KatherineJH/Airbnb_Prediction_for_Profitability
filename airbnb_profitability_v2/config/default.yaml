@@ -1,0 +1,84 @@
+# Single source of truth for the whole workflow (notebook, CLI and tests all read this file).
+# A hash of this file (minus `paths`) is stored with every run; changing the config
+# without changing project.run_name is refused, so results can never silently mix.
+
+project:
+  run_name: baseline_v2
+  seed: 42
+
+paths:                         # relative to the project root
+  raw_csv: data/raw/merged_file.csv
+  runs_dir: runs
+
+data:
+  source: auto                 # auto -> real CSV (error if missing) | csv | synthetic
+  expected_sha256: null        # pin the raw file; the run aborts if it differs
+  cities: [bergamo, roma, milano, sicilia, trentino, puglia, firenze, venezia, napoli, bologna]
+  city_column: city
+  synthetic_rows_per_city: 600
+
+# --- Target ------------------------------------------------------------------
+# Estimated annual revenue per listing (San-Francisco-style occupancy model):
+#   booked_nights = min(reviews_ltm / review_rate * avg_stay_nights, max_occupancy * 365)
+#   revenue       = price * booked_nights
+# The model predicts log1p(revenue) from ex-ante listing attributes ONLY.
+# price / review / availability columns are used to BUILD the target and are never features.
+target:
+  review_rate: 0.5             # share of stays that leave a review
+  avg_stay_nights: 3
+  max_occupancy: 0.9
+  min_reviews_ltm: 1           # population = listings active in the last 12 months
+  price_min: 10
+  price_max: 5000
+
+split:
+  test_size: 0.2               # held out by host (GroupShuffleSplit); touched exactly once
+  group_column: host_id
+
+features:
+  top_amenities: 40            # vocabulary learned on TRAIN folds only (inside the pipeline)
+  amenity_min_count: 20
+  onehot_min_frequency: 20
+  clip:
+    host_total_listings_count: 500
+    minimum_nights: 365
+    maximum_nights: 1125
+
+# Distance is measured to the NEAREST anchor, so regions (sicilia, puglia, trentino) are handled sensibly.
+geo:
+  anchors:
+    bergamo:  [[45.695, 9.670]]
+    roma:     [[41.9028, 12.4964]]
+    milano:   [[45.4642, 9.1885]]
+    sicilia:  [[38.1157, 13.3615], [37.5079, 15.0830], [38.1938, 15.5540], [37.0755, 15.2866], [38.0176, 12.5365]]
+    trentino: [[46.0748, 11.1217], [46.4983, 11.3548]]
+    puglia:   [[41.1171, 16.8719], [40.3515, 18.1750], [40.6327, 17.9418], [40.4644, 17.2470], [41.4622, 15.5446]]
+    firenze:  [[43.7696, 11.2558]]
+    venezia:  [[45.4408, 12.3155]]
+    napoli:   [[40.8518, 14.2681]]
+    bologna:  [[44.4949, 11.3426]]
+
+compute:
+  n_jobs: -1                   # estimator threads
+  save_models: true            # only the CV-selected model and the stack per city
+
+# --- Hyper-parameter optimisation (train data only, host-grouped CV) -----------
+tuning:
+  cv_folds: 3
+  n_trials: 30
+  ga_population: 10            # NSGA-II (a genetic algorithm) population size
+  plan:                        # model -> samplers.  tpe = Bayesian (TPE), ga = genetic algorithm
+    ridge: [tpe]
+    rf:    [tpe]
+    lgbm:  [tpe, ga]
+    xgb:   [tpe, ga]
+
+stacking:
+  members: [rf, lgbm, xgb]     # best sampler per family (by train CV) feeds the stack
+  cv_folds: 5                  # out-of-fold meta-features, host-grouped
+  # final estimator: non-negative linear regression (interpretable weights)
+
+evaluation:
+  bootstrap_iterations: 300    # host-clustered bootstrap CI on the test set
+  permutation_repeats: 5
+  top_k_features: 10

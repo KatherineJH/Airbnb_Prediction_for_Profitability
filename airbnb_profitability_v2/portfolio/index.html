@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Airbnb Italy 수익 예측 재개발 — 테스트셋 누수·타깃 파생·분할 전 전처리를 제거하고 재현 가능한 워크플로로 다시 만든 데이터 사이언스 케이스 스터디"
+    />
+    <meta name="theme-color" content="#14213d" />
+    <title>Airbnb Revenue v2 | Leak-free ML Portfolio</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="script.js" defer></script>
+  </head>
+  <body>
+    <div class="scroll-progress" aria-hidden="true"><span></span></div>
+
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="포트폴리오 처음으로">
+        <span class="brand-mark">v2</span>
+        <span>
+          <strong>Airbnb Revenue</strong>
+          <small>Leak-free ML Workflow</small>
+        </span>
+      </a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">
+        <span class="sr-only">메뉴 열기</span>
+        <span></span><span></span>
+      </button>
+      <nav id="site-nav" class="site-nav" aria-label="주요 섹션">
+        <a href="#problem">문제</a>
+        <a href="#system">설계</a>
+        <a href="#quality">검증</a>
+        <a href="#results">결과</a>
+        <a href="#evidence">화면</a>
+        <a href="#limits">한계</a>
+      </nav>
+      <a class="header-link" href="https://github.com/KatherineJH/Airbnb_Prediction_for_Profitability" target="_blank" rel="noreferrer">
+        GitHub <span aria-hidden="true">↗</span>
+      </a>
+    </header>
+
+    <main id="top">
+      <section class="hero section-shell" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow">DATA SCIENCE · RE-ENGINEERING CASE STUDY</p>
+          <h1 id="hero-title">높은 점수보다<br /><em>먼저 의심한</em> 예측</h1>
+          <p class="hero-lede">
+            이탈리아 Airbnb 18만 건으로 만든 석사 프로젝트의 노트북 3개를 다시 읽고, 정확도 99%의 원인이 테스트셋 누수였음을 찾아냈습니다.
+            누수 경로를 구조적으로 막고, 하나의 노트북과 테스트되는 파이썬 패키지가 같은 워크플로로 동작하도록 재개발했습니다.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#quality">검증 설계 보기</a>
+            <a class="button button-secondary" href="#evidence">실행 결과 보기</a>
+          </div>
+          <dl class="hero-meta">
+            <div><dt>Role focus</dt><dd>ML Engineering · Evaluation</dd></div>
+            <div><dt>Stack</dt><dd>scikit-learn · LightGBM · XGBoost · Optuna</dd></div>
+            <div><dt>Scope</dt><dd>개인 프로젝트 · Inside Airbnb</dd></div>
+          </dl>
+        </div>
+
+        <aside class="hero-panel" aria-label="핵심 검증 결과">
+          <div class="panel-topline"><span>QUALITY SNAPSHOT</span><span class="live-dot">Verified</span></div>
+          <div class="hero-score">
+            <strong>11</strong>
+            <span>automated tests<br />0 failed</span>
+          </div>
+          <div class="metric-grid">
+            <div><span>Leak paths closed</span><strong>3 / 3</strong><small>test · target · preprocessing</small></div>
+            <div><span>Host overlap train/test</span><strong>0</strong><small>asserted in code + test</small></div>
+            <div><span>Refit difference</span><strong>3.6e-15</strong><small>same seed, 2 runs</small></div>
+            <div><span>Models per city</span><strong>7</strong><small>+ median baseline</small></div>
+          </div>
+          <p class="panel-note">검증은 합성 데이터로 수행했습니다. 실제 데이터 결과는 아직 실행하지 않았으며 이 페이지는 이를 성과로 주장하지 않습니다.</p>
+        </aside>
+      </section>
+
+      <section id="problem" class="section section-dark">
+        <div class="section-shell">
+          <div class="section-heading light">
+            <p class="eyebrow">01 · WHAT WAS WRONG</p>
+            <h2>정확도 99%는 모델이 좋아서가 아니라,<br />정답을 보고 푼 결과였습니다.</h2>
+            <p>기존 노트북의 스태킹·베이지안·GA는 메타모델을 테스트 정답으로 학습한 뒤 같은 데이터로 점수를 냈습니다. 점검 결과 세 가지 치명 문제와 여러 방법론 허점을 확인했습니다.</p>
+          </div>
+          <div class="risk-grid">
+            <article><span>01</span><h3>테스트셋 학습·평가</h3><p>메타모델을 test_y로 학습하고 같은 메타 피처로 예측해 평가했습니다. Bergamo 스태킹 adj R² 1.00은 암기의 결과였습니다.</p></article>
+            <article><span>02</span><h3>입력에서 파생된 타깃</h3><p>수익성 타깃의 재료(호스트 리스팅 수 등)가 피처에 남아 있었고, 전체 데이터 min-max와 clip으로 정의가 모호했습니다.</p></article>
+            <article><span>03</span><h3>분할 전 전처리</h3><p>결측 대체, 라벨 인코딩, 어메니티 상위 100개 선택을 전체 데이터로 학습한 뒤 분할했습니다.</p></article>
+            <article><span>04</span><h3>방법론 허점</h3><p>MAPE에서 비유한 값 제거, 학습 점수로 n_estimators 선택, 같은 호스트의 train/test 혼재, 오작동하는 GA 탐색 공간.</p></article>
+          </div>
+        </div>
+      </section>
+
+      <section id="system" class="section section-paper">
+        <div class="section-shell">
+          <div class="section-heading split-heading">
+            <div>
+              <p class="eyebrow">02 · WORKFLOW DESIGN</p>
+              <h2>노트북은 보여주고,<br />패키지가 실행합니다.</h2></div>
+            <p>모든 로직은 <code>src/airbnb_profit</code>에 두고, 노트북과 CLI가 같은 캐시된 단계를 호출합니다. 노트북에서 본 숫자는 스크립트로 재현되는 숫자입니다.</p>
+          </div>
+
+          <div class="pipeline" role="img" aria-label="prepare, split, tune, evaluate, report 다섯 단계 파이프라인">
+            <div class="step"><span>01</span><strong>prepare</strong><small>행 단위 파싱 · 타깃 생성 · 감사 로그</small></div>
+            <div class="step"><span>02</span><strong>split</strong><small>host_id 그룹 분할 · 테스트 격리</small></div>
+            <div class="step train"><span>03</span><strong>tune</strong><small>훈련 데이터 CV만 사용 · TPE / GA</small></div>
+            <div class="step test"><span>04</span><strong>evaluate</strong><small>테스트 1회 · 스택 OOF · bootstrap CI</small></div>
+            <div class="step"><span>05</span><strong>report</strong><small>Wilcoxon · 중요도 · 그림 · manifest</small></div>
+          </div>
+
+          <div class="responsibility-grid">
+            <article class="responsibility-card llm-card">
+              <div class="card-label">NOTEBOOK</div><h3>설명과 판단</h3>
+              <ul><li>단계 실행과 결과 표시</li><li>누수 가드 증거 출력</li><li>한계와 해석 서술</li></ul>
+            </article>
+            <article class="responsibility-card code-card">
+              <div class="card-label">PACKAGE</div><h3>결정적 로직</h3>
+              <ul><li>타깃 · 피처 · 파이프라인</li><li>튜닝 · 스태킹 · 평가</li><li>pytest 11개</li></ul>
+            </article>
+            <article class="responsibility-card db-card">
+              <div class="card-label">ARTIFACTS</div><h3>재현 기록</h3>
+              <ul><li>config 해시와 스냅샷</li><li>git 커밋 · 패키지 버전</li><li>원본 데이터 SHA-256</li></ul>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="quality" class="section section-mint">
+        <div class="section-shell">
+          <div class="section-heading">
+            <p class="eyebrow">03 · QUALITY GATES</p>
+            <h2>누수가 들어올 수 없게<br />네 곳을 막았습니다</h2>
+          </div>
+          <ol class="gate-list">
+            <li><span class="gate-number">01</span><div><h3>Target Gate</h3><p>타깃을 “가격 × 추정 예약일수”로 문서화하고 행 단위로만 계산합니다. 가격·리뷰·가용성 컬럼은 피처에서 제외하고, 위반하면 예외가 발생합니다.</p></div><small>FORBIDDEN_FEATURES · assert</small></li>
+            <li><span class="gate-number">02</span><div><h3>Split Gate</h3><p>테스트셋을 호스트 단위로 먼저 분리해 같은 호스트가 양쪽에 걸치지 않게 합니다. 이후 모든 CV도 GroupKFold입니다.</p></div><small>GroupShuffleSplit · GroupKFold</small></li>
+            <li><span class="gate-number">03</span><div><h3>Training Gate</h3><p>결측 대체·원핫·타깃 인코딩·어메니티 어휘를 모두 Pipeline 안에 넣어 폴드마다 훈련 행에서만 학습합니다.</p></div><small>sklearn Pipeline · in-fold encoding</small></li>
+            <li><span class="gate-number">04</span><div><h3>Evaluation Gate</h3><p>튜닝은 훈련 CV로만, 스택은 out-of-fold 예측으로만 합니다. 모델 선택은 훈련 CV 기준이며 테스트는 한 번만 봅니다.</p></div><small>OOF stacking · selection by CV</small></li>
+          </ol>
+
+          <div class="test-band">
+            <div><p class="eyebrow">AUTOMATED EVIDENCE</p><h3>11 passed · 0 failed</h3><p>타깃 공식, 파서, 어메니티 어휘가 훈련에서만 학습되는지, 호스트 비중복, 캐시와 설정 충돌 방지, 전체 파이프라인 종단 실행, 동일 시드 재실행 시 예측 완전 일치를 자동 검증합니다.</p></div>
+            <div class="test-tags" aria-label="테스트 범주"><span>Leakage guard</span><span>Target formula</span><span>Host split</span><span>Caching</span><span>Determinism</span><span>End-to-end</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="results" class="section section-paper">
+        <div class="section-shell">
+          <div class="section-heading split-heading">
+            <div><p class="eyebrow">04 · RESULTS &amp; DIAGNOSIS</p><h2>점수가 오르는 곳을<br />가장 먼저 의심했습니다.</h2></div>
+            <p>기존 결과에서 복잡한 모델일수록 점수가 높았고 단일 모델은 일관되게 낮았습니다. 이 패턴 자체가 누수의 신호였습니다. 아래는 기존 노트북 출력의 도시 평균 adj R²입니다.</p>
+          </div>
+
+          <div class="evaluation-layout">
+            <div class="chart-card">
+              <div class="chart-legend"><span><i class="ok"></i>테스트로 평가한 단일 모델</span><span><i class="leak"></i>테스트로 학습·평가한 메타모델</span></div>
+              <div class="bar-row wide"><strong>단일 4종 평균</strong><div class="bars"><span class="bar ok-bar" style="--value:59%"><b>0.59</b></span></div></div>
+              <div class="bar-row wide"><strong>Bayesian 메타</strong><div class="bars"><span class="bar leak-bar" style="--value:83%"><b>0.83</b></span></div></div>
+              <div class="bar-row wide"><strong>GA 메타</strong><div class="bars"><span class="bar leak-bar" style="--value:87%"><b>0.87</b></span></div></div>
+              <div class="bar-row wide"><strong>Stacking 메타</strong><div class="bars"><span class="bar leak-bar" style="--value:95%"><b>0.95</b></span></div></div>
+              <p>Source: 기존 3.Compare_Eval_Visual 출력 · 10개 도시 평균 adj R²</p>
+            </div>
+            <div class="failure-card">
+              <p class="eyebrow">DIAGNOSIS</p>
+              <h3>v1 점수는 성과가 아니라 증상</h3>
+              <div><strong>0.59</strong><span>단일 모델의 R²는 도시마다 0.46~0.69. 이 수치만 정직한 성능입니다.</span></div>
+              <div><strong>99%</strong><span>Bergamo 스태킹 “정확도”. 메타모델이 테스트 정답을 직접 학습했습니다.</span></div>
+              <p class="failure-policy">v2의 수치는 타깃을 재정의했기 때문에 v1과 직접 비교하지 않습니다. 비교 대상은 같은 분할의 중앙값 베이스라인과 튜닝된 Ridge입니다.</p>
+            </div>
+          </div>
+
+          <div class="runtime-strip">
+            <div><span>Cities</span><strong>10</strong></div>
+            <div><span>Features (ex-ante)</span><strong>31</strong></div>
+            <div><span>Tuning</span><strong>TPE + GA / city</strong></div>
+            <div><span>Test CI</span><strong>host bootstrap</strong></div>
+          </div>
+
+          <h3 style="margin:56px 0 18px;font-size:1.4rem;">무엇을 어떻게 바꿨나</h3>
+          <div class="diff-table" role="table" aria-label="v1과 v2 비교">
+            <div class="scope-head" role="row"><span role="columnheader">영역</span><span role="columnheader">v1</span><span role="columnheader">v2</span></div>
+            <div role="row"><span role="cell">스태킹</span><span class="before" role="cell">test_y로 학습·평가</span><span role="cell">훈련 OOF 예측 + 비음수 선형 메타모델</span></div>
+            <div role="row"><span role="cell">타깃</span><span class="before" role="cell">입력 파생, 전체 min-max</span><span role="cell">행 단위 추정 연 매출, log1p</span></div>
+            <div role="row"><span role="cell">지표</span><span class="before" role="cell">MAPE (비유한 값 제거)</span><span role="cell">R² · RMSE · WAPE · 호스트 bootstrap CI</span></div>
+            <div role="row"><span role="cell">튜닝</span><span class="before" role="cell">메타모델만, 전 도시 동일 값</span><span role="cell">모든 모델 · 도시별 · 훈련 CV</span></div>
+            <div role="row"><span role="cell">GA</span><span class="before" role="cell">n_estimators ∈ {0,1}, 방향 오류</span><span role="cell">Optuna NSGA-II, TPE와 동일 목적함수</span></div>
+            <div role="row"><span role="cell">중요도 비교</span><span class="before" role="cell">문자열 리스트의 Kendall/Spearman</span><span role="cell">정렬된 permutation 중요도 벡터의 Spearman</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="evidence" class="section section-gallery">
+        <div class="section-shell">
+          <div class="section-heading light split-heading">
+            <div><p class="eyebrow">05 · WORKING EVIDENCE</p><h2>같은 코드가 만든<br />실제 출력입니다.</h2></div>
+            <p>아래 그림은 노트북을 끝까지 실행해 얻은 출력입니다. 합성 데이터이므로 수치는 시장에 대한 의미가 없고, 파이프라인이 신호를 복원하고 베이스라인과 구분되는지를 보여줍니다.</p>
+          </div>
+          <div class="gallery-grid four">
+            <figure class="gallery-main">
+              <button class="image-button" type="button" data-image="assets/model-comparison.png" data-caption="테스트 RMSE·R² 도시별 분포 — 중앙값 베이스라인(dummy)과 모델 비교 (합성 데이터)">
+                <img src="assets/model-comparison.png" alt="모델별 테스트 RMSE와 R² 상자그림. dummy 베이스라인이 가장 낮다." />
+                <span>확대 보기 ↗</span>
+              </button>
+              <figcaption><span>01</span><div><strong>Honest comparison</strong><p>모든 모델을 같은 held-out 호스트에서 중앙값 베이스라인과 함께 비교합니다. (합성 데이터)</p></div></figcaption>
+            </figure>
+            <figure>
+              <button class="image-button" type="button" data-image="assets/tuning-history.png" data-caption="모델별 TPE(Bayesian)와 GA의 최적화 이력 (합성 데이터)">
+                <img src="assets/tuning-history.png" alt="모델별 튜닝 trial에 따른 최소 CV RMSE 곡선" />
+                <span>확대 보기 ↗</span>
+              </button>
+              <figcaption><span>02</span><div><strong>Tuning on train only</strong><p>TPE와 GA를 같은 목적함수로 비교합니다.</p></div></figcaption>
+            </figure>
+            <figure>
+              <button class="image-button" type="button" data-image="assets/importance-by-city.png" data-caption="도시별 permutation importance — 원본 컬럼 단위 (합성 데이터)">
+                <img src="assets/importance-by-city.png" alt="도시별 permutation importance 상위 10개 막대그래프" />
+                <span>확대 보기 ↗</span>
+              </button>
+              <figcaption><span>03</span><div><strong>Permutation importance</strong><p>held-out 호스트에서 컬럼을 섞었을 때의 RMSE 증가량입니다.</p></div></figcaption>
+            </figure>
+          </div>
+          <p class="notice">합성 데이터 실행 결과: CV로 선택한 모델 평균 테스트 R² 0.21, 스택 0.23, 중앙값 베이스라인 −0.02. 같은 모델을 독립적으로 두 번 재학습한 예측 차이는 3.6e-15였습니다.</p>
+        </div>
+      </section>
+
+      <section id="limits" class="section section-paper">
+        <div class="section-shell">
+          <div class="section-heading split-heading">
+            <div><p class="eyebrow">06 · SCOPE &amp; LIMITS</p><h2>검증한 것과<br />검증하지 않은 것을 구분합니다.</h2></div>
+            <p>이 프로젝트의 주장은 “누수 없는 평가 구조를 만들고 자동 테스트로 증명했다”까지입니다. 실제 이탈리아 시장의 성능은 아직 주장하지 않습니다.</p>
+          </div>
+          <div class="scope-table" role="table" aria-label="검증 범위와 한계">
+            <div class="scope-head" role="row"><span role="columnheader">검증한 것</span><span role="columnheader">아직 검증하지 않은 것</span></div>
+            <div role="row"><span role="cell">테스트 격리, 호스트 비중복, 타깃 재료 제외 (코드·테스트)</span><span role="cell">실제 merged_file.csv(18만 건)로의 전체 실행 결과</span></div>
+            <div role="row"><span role="cell">동일 시드·설정에서 예측이 완전히 같음</span><span role="cell">occupancy 가정(리뷰율 0.5, 체류 3박)에 대한 민감도 분석</span></div>
+            <div role="row"><span role="cell">합성 데이터에서 신호 복원과 베이스라인 구분</span><span role="cell">비용 데이터가 없어 “이익”이 아닌 “매출”만 추정</span></div>
+            <div role="row"><span role="cell">노트북 끝까지 오류 없이 실행</span><span role="cell">최근 12개월 리뷰가 없는 숙소, 다른 시점의 데이터</span></div>
+            <div role="row"><span role="cell">모델 선택을 훈련 CV로만 수행</span><span role="cell">단일 hold-out이 아닌 반복 분할의 분할 분산</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="closing section-dark">
+        <div class="section-shell closing-inner">
+          <p class="eyebrow">WHY THIS PROJECT</p>
+          <h2>좋은 숫자를 만드는 일보다<br /><em>믿을 수 있는 숫자</em>를 만드는 일.</h2>
+          <p>자신의 과거 결과를 스스로 반박하고, 그 원인을 코드의 구조로 막고, 테스트로 증명하는 과정을 하나의 재현 가능한 워크플로로 만들었습니다.</p>
+          <div class="hero-actions">
+            <a class="button button-light" href="https://github.com/KatherineJH/Airbnb_Prediction_for_Profitability" target="_blank" rel="noreferrer">소스 코드 보기 ↗</a>
+            <a class="button button-ghost" href="#top">처음으로 ↑</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <span>Airbnb Revenue v2 · Leak-free ML Workflow</span>
+      <span>Verified with synthetic data · 2026</span>
+    </footer>
+
+    <dialog class="image-dialog" aria-label="화면 이미지 확대 보기">
+      <button class="dialog-close" type="button" aria-label="닫기">×</button>
+      <img src="" alt="" />
+      <p></p>
+    </dialog>
+  </body>
+</html>
